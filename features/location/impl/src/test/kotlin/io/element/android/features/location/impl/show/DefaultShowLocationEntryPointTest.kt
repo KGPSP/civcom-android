@@ -14,6 +14,7 @@ import com.google.common.truth.Truth.assertThat
 import io.element.android.features.location.api.Location
 import io.element.android.features.location.api.ShowLocationEntryPoint
 import io.element.android.features.location.api.ShowLocationMode
+import io.element.android.features.location.impl.DisabledLocationNode
 import io.element.android.features.location.impl.common.FakeUserLocationStateFactory
 import io.element.android.features.location.impl.common.actions.FakeLocationActions
 import io.element.android.features.location.impl.common.permissions.FakePermissionsPresenter
@@ -35,7 +36,9 @@ class DefaultShowLocationEntryPointTest {
     @Test
     fun `test node builder`() {
         val entryPoint = DefaultShowLocationEntryPoint()
+        var initializedMap = false
         val parentNode = TestParentNode.create { buildContext, plugins ->
+            initializedMap = true
             val joinedRoom = FakeJoinedRoom()
             ShowLocationNode(
                 buildContext = buildContext,
@@ -72,7 +75,7 @@ class DefaultShowLocationEntryPointTest {
             buildContext = BuildContext.root(null),
             inputs = inputs,
         )
-        assertThat(result).isInstanceOf(ShowLocationNode::class.java)
-        assertThat(result.plugins).contains(inputs)
+        assertThat(result).isInstanceOf(DisabledLocationNode::class.java)
+        assertThat(initializedMap).isFalse()
     }
 }

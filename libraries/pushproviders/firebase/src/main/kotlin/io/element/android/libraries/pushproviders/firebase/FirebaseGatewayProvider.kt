@@ -10,17 +10,14 @@ package io.element.android.libraries.pushproviders.firebase
 
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
-import io.element.android.features.enterprise.api.EnterpriseService
 
 interface FirebaseGatewayProvider {
     fun getFirebaseGateway(): String
 }
 
 @ContributesBinding(AppScope::class)
-class DefaultFirebaseGatewayProvider(
-    private val enterpriseService: EnterpriseService,
-) : FirebaseGatewayProvider {
+class DefaultFirebaseGatewayProvider : FirebaseGatewayProvider {
     override fun getFirebaseGateway(): String {
-        return enterpriseService.firebasePushGateway() ?: FirebaseConfig.PUSHER_HTTP_URL
+        return FirebaseConfig.PUSHER_HTTP_URL
     }
 }

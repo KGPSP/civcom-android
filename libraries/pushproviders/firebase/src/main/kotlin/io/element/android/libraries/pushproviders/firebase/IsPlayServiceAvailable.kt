@@ -31,6 +31,7 @@ class DefaultIsPlayServiceAvailable(
     @ApplicationContext private val context: Context,
 ) : IsPlayServiceAvailable {
     override fun isAvailable(): Boolean {
+        if (context.getString(R.string.google_app_id).isBlank()) return false
         val apiAvailability = GoogleApiAvailabilityLight.getInstance()
         val resultCode = apiAvailability.isGooglePlayServicesAvailable(context)
         return if (resultCode == ConnectionResult.SUCCESS) {

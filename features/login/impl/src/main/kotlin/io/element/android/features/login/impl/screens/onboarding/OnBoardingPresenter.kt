@@ -30,7 +30,6 @@ import io.element.android.features.login.impl.login.LoginModeState
 import io.element.android.features.rageshake.api.RageshakeFeatureAvailability
 import io.element.android.libraries.architecture.Presenter
 import io.element.android.libraries.core.meta.BuildMeta
-import io.element.android.libraries.core.meta.BuildType
 import io.element.android.libraries.sessionstorage.api.SessionStore
 import io.element.android.libraries.ui.utils.MultipleTapToUnlock
 import kotlinx.coroutines.launch
@@ -87,7 +86,7 @@ class OnBoardingPresenter(
             forcedAccountProvider ?: linkAccountProvider
         }
         val canLoginWithQrCode by produceState(initialValue = false, linkAccountProvider) {
-            value = linkAccountProvider == null
+            value = false
         }
         val canReportBug by remember { rageshakeFeatureAvailability.isAvailable() }.collectAsState(false)
         var showReportBug by rememberSaveable { mutableStateOf(false) }
@@ -129,7 +128,7 @@ class OnBoardingPresenter(
         return OnBoardingState(
             isAddingAccount = isAddingAccount,
             showBackButton = params.showBackButton,
-            showDeveloperSettings = buildMeta.buildType != BuildType.RELEASE,
+            showDeveloperSettings = false,
             productionApplicationName = buildMeta.productionApplicationName,
             defaultAccountProvider = defaultAccountProvider,
             mustChooseAccountProvider = mustChooseAccountProvider,

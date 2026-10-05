@@ -30,13 +30,7 @@ android {
         )
         buildConfigFieldStr(
             name = "MAPTILER_API_KEY",
-            value = if (isEnterpriseBuild) {
-                BuildTimeConfig.SERVICES_MAPTILER_APIKEY
-            } else {
-                System.getenv("ELEMENT_ANDROID_MAPTILER_API_KEY")
-                    ?: readLocalProperty("services.maptiler.apikey")
-            }
-                ?: ""
+            value = ""
         )
         buildConfigFieldStr(
             name = "MAPTILER_LIGHT_MAP_ID",

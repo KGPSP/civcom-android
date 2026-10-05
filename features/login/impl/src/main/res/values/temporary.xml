@@ -1,0 +1,5 @@
+<resources>
+    <string name="screen_onboarding_civcom_title">CIVCOM</string>
+    <string name="screen_onboarding_civcom_message">Komunikator KG PSP. Zaloguj się kontem nadanym przez administratora. Wiadomości i pliki są chronione szyfrowaniem.</string>
+    <string name="screen_onboarding_civcom_sign_in">Zaloguj się</string>
+</resources>

@@ -10,12 +10,12 @@ package io.element.android.features.location.impl
 
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
-import io.element.android.features.location.api.BuildConfig
 import io.element.android.features.location.api.LocationService
+import io.element.android.libraries.matrix.api.CivcomPolicy
 
 @ContributesBinding(AppScope::class)
 class DefaultLocationService : LocationService {
     override fun isServiceAvailable(): Boolean {
-        return BuildConfig.MAPTILER_API_KEY.isNotEmpty()
+        return CivcomPolicy.MAPS_ENABLED
     }
 }

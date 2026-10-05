@@ -8,13 +8,11 @@
 
 package io.element.android.features.call
 
-import android.content.Intent
 import androidx.test.platform.app.InstrumentationRegistry
 import com.google.common.truth.Truth.assertThat
 import io.element.android.features.call.api.CallData
 import io.element.android.features.call.impl.DefaultElementCallEntryPoint
 import io.element.android.features.call.impl.notifications.CallNotificationData
-import io.element.android.features.call.impl.ui.ElementCallActivity
 import io.element.android.features.call.utils.FakeActiveCallManager
 import io.element.android.libraries.matrix.test.AN_EVENT_ID
 import io.element.android.libraries.matrix.test.A_ROOM_ID
@@ -33,19 +31,16 @@ import kotlin.time.Duration.Companion.seconds
 
 class DefaultElementCallEntryPointTest : RobolectricTest() {
     @Test
-    fun `startCall - starts ElementCallActivity setup with the needed extras`() = runTest {
+    fun `startCall - never starts an excluded call activity`() = runTest {
         val entryPoint = createEntryPoint()
         entryPoint.startCall(CallData(A_SESSION_ID, A_ROOM_ID, isAudioCall = false))
 
-        val expectedIntent = Intent(InstrumentationRegistry.getInstrumentation().targetContext, ElementCallActivity::class.java)
-        val intent = shadowOf(RuntimeEnvironment.getApplication()).nextStartedActivity
-        assertThat(intent.component).isEqualTo(expectedIntent.component)
-        assertThat(intent.extras?.containsKey("EXTRA_CALL_TYPE")).isTrue()
+        assertThat(shadowOf(RuntimeEnvironment.getApplication()).nextStartedActivity).isNull()
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun `handleIncomingCall - registers the incoming call using ActiveCallManager`() = runTest {
+    fun `handleIncomingCall - never registers or initializes an excluded call`() = runTest {
         val registerIncomingCallLambda = lambdaRecorder<CallNotificationData, Unit> {}
         val activeCallManager = FakeActiveCallManager(registerIncomingCallResult = registerIncomingCallLambda)
         val entryPoint = createEntryPoint(activeCallManager = activeCallManager)
@@ -65,13 +60,13 @@ class DefaultElementCallEntryPointTest : RobolectricTest() {
 
         advanceTimeBy(1.seconds)
 
-        registerIncomingCallLambda.assertions().isCalledOnce()
+        registerIncomingCallLambda.assertions().isNeverCalled()
     }
 
     private fun TestScope.createEntryPoint(
         activeCallManager: FakeActiveCallManager = FakeActiveCallManager(),
     ) = DefaultElementCallEntryPoint(
         context = InstrumentationRegistry.getInstrumentation().targetContext,
-        activeCallManager = activeCallManager,
+        activeCallManager = lazy { activeCallManager },
     )
 }

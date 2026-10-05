@@ -100,7 +100,7 @@ class DefaultPusherSubscriberTest {
                         appDisplayName = "MyApp",
                         deviceDisplayName = "MyDevice",
                         profileTag = DEFAULT_PUSHER_FILE_TAG + "_",
-                        lang = "en",
+                        lang = "pl",
                         defaultPayload = "{\"cs\":\"$A_SECRET\"}",
                         append = false,
                     ),

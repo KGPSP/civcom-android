@@ -54,8 +54,8 @@ object Versions {
      * AAB will have a ABI code of 0.
      * See comment above for the calculation method.
      */
-    const val VERSION_CODE = (2000 + versionYear) * 10_000 + versionMonth * 100 + versionReleaseNumber
-    val VERSION_NAME = "$versionYear.${versionMonth.toString().padStart(2, '0')}.$versionReleaseNumber"
+    const val VERSION_CODE = 1
+    const val VERSION_NAME = "1.0.0"
 
     /**
      * Compile SDK version. Must be updated when a new Android version is released.

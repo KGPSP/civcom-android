@@ -46,6 +46,7 @@ import io.element.android.libraries.designsystem.components.PinVariant
 import io.element.android.libraries.designsystem.preview.ElementPreview
 import io.element.android.libraries.designsystem.preview.PreviewsDayNight
 import io.element.android.libraries.designsystem.utils.CommonDrawables
+import io.element.android.libraries.matrix.api.CivcomPolicy
 
 /**
  * Shows a static map image downloaded via a third party service's static maps API.
@@ -66,6 +67,7 @@ fun StaticMapView(
     modifier: Modifier = Modifier,
     darkMode: Boolean = !ElementTheme.isLightTheme,
 ) {
+    if (!CivcomPolicy.MAPS_ENABLED) return
     // Using BoxWithConstraints to:
     // 1) Size the inner Image to the same Dp size of the outer BoxWithConstraints.
     // 2) Request the static map image of the exact required size in Px to fill the AsyncImage.

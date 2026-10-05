@@ -1,0 +1,36 @@
+name: CIVCOM Android verification
+on:
+  pull_request:
+  push:
+    branches: [main, feat/civcom-mobile-v1]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: civcom-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GRADLE_USER_HOME: ${{ github.workspace }}/.ci-gradle
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install exact Android tools
+        run: sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0' 'build-tools;36.0.0'
+      - name: Build development application
+        run: ./gradlew :app:assembleGplayDebug --no-daemon --no-configuration-cache
+      - name: Unit and architectural tests
+        run: ./gradlew :app:testGplayDebugUnitTest testDebugUnitTest --no-daemon --no-configuration-cache
+      - name: Required upstream quality checks
+        run: ./gradlew ktlintCheck detekt :app:lintGplayDebug :app:lintFdroidDebug lintDebug --no-daemon --no-configuration-cache
+      - name: Documentation links and contents
+        run: python3 tools/docs/generate_toc.py --verify ./*.md docs/**/*.md
+# No publishing, signing credentials, fork secrets, pull_request_target, telemetry, or uploads.

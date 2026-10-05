@@ -11,11 +11,15 @@ package io.element.android.features.enterprise.impl
 import dev.zacsweers.metro.ContributesBinding
 import io.element.android.features.enterprise.api.SessionEnterpriseService
 import io.element.android.libraries.di.SessionScope
+import io.element.android.libraries.matrix.api.CivcomPolicy
 
 @ContributesBinding(SessionScope::class)
 class DefaultSessionEnterpriseService : SessionEnterpriseService {
     override suspend fun init() = Unit
-    override suspend fun tweakMasUrl(url: String): String = url
-    override suspend fun isElementCallAvailable(): Boolean = true
+    override suspend fun tweakMasUrl(url: String): String {
+        require(CivcomPolicy.isTrustedOAuthEndpoint(url)) { "Unsupported CIVCOM authentication endpoint" }
+        return url
+    }
+    override suspend fun isElementCallAvailable(): Boolean = CivcomPolicy.CALLS_ENABLED
     override suspend fun isEncryptionDisabledByHomeserver(): Boolean = false
 }

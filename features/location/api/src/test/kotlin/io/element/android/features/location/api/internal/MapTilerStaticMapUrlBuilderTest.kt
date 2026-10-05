@@ -12,6 +12,12 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
 class MapTilerStaticMapUrlBuilderTest {
+    @Test
+    fun `CIVCOM rejects map rendering even when an API key is supplied`() {
+        val builder = MapTilerStaticMapUrlBuilder("https://api.maptiler.com/maps", "api-key", "light", "dark")
+        assertThat(builder.isServiceAvailable()).isFalse()
+    }
+
     private val builder = MapTilerStaticMapUrlBuilder(
         baseUrl = "https://base.url",
         apiKey = "anApiKey",
@@ -20,8 +26,8 @@ class MapTilerStaticMapUrlBuilderTest {
     )
 
     @Test
-    fun `isServiceAvailable returns true if api key is not empty`() {
-        assertThat(builder.isServiceAvailable()).isTrue()
+    fun `isServiceAvailable remains false with an API key`() {
+        assertThat(builder.isServiceAvailable()).isFalse()
     }
 
     @Test

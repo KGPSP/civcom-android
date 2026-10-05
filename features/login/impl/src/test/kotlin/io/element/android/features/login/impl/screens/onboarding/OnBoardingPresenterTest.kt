@@ -8,6 +8,7 @@
 
 package io.element.android.features.login.impl.screens.onboarding
 
+import app.cash.turbine.ReceiveTurbine
 import com.google.common.truth.Truth.assertThat
 import io.element.android.appconfig.AuthenticationConfig
 import io.element.android.appconfig.OnBoardingConfig
@@ -94,8 +95,7 @@ class OnBoardingPresenterTest {
             assertThat(initialState.canCreateAccount).isEqualTo(OnBoardingConfig.CAN_CREATE_ACCOUNT)
             assertThat(initialState.canReportBug).isFalse()
             assertThat(initialState.isAddingAccount).isFalse()
-            val finalState = awaitItem()
-            assertThat(finalState.canLoginWithQrCode).isTrue()
+            assertThat(awaitItem().canLoginWithQrCode).isFalse()
         }
     }
 
@@ -149,7 +149,6 @@ class OnBoardingPresenterTest {
             rageshakeFeatureAvailability = { flowOf(false) },
         )
         presenter.test {
-            skipItems(1)
             awaitItem().also { state ->
                 assertThat(state.canReportBug).isFalse()
                 repeat(7) {
@@ -190,8 +189,7 @@ class OnBoardingPresenterTest {
             ),
         )
         presenter.test {
-            skipItems(3)
-            awaitItem().also {
+            awaitStateWhere { it.defaultAccountProvider == ACCOUNT_PROVIDER_FROM_LINK }.also {
                 assertThat(it.defaultAccountProvider).isEqualTo(ACCOUNT_PROVIDER_FROM_LINK)
                 assertThat(it.canLoginWithQrCode).isFalse()
                 assertThat(it.canCreateAccount).isFalse()
@@ -216,7 +214,7 @@ class OnBoardingPresenterTest {
             skipItems(1)
             awaitItem().also {
                 assertThat(it.defaultAccountProvider).isNull()
-                assertThat(it.canLoginWithQrCode).isTrue()
+                assertThat(it.canLoginWithQrCode).isFalse()
                 assertThat(it.canCreateAccount).isFalse()
             }
         }
@@ -238,7 +236,7 @@ class OnBoardingPresenterTest {
             skipItems(1)
             awaitItem().also {
                 assertThat(it.defaultAccountProvider).isEqualTo(ACCOUNT_PROVIDER_FROM_CONFIG)
-                assertThat(it.canLoginWithQrCode).isTrue()
+                assertThat(it.canLoginWithQrCode).isFalse()
                 assertThat(it.canCreateAccount).isFalse()
             }
         }
@@ -268,21 +266,19 @@ class OnBoardingPresenterTest {
             accountProviderDataSource = accountProviderDataSource,
         )
         presenter.test {
-            skipItems(3)
-            awaitItem().also {
+            awaitStateWhere { it.defaultAccountProvider == A_HOMESERVER_URL }.also {
                 assertThat(it.defaultAccountProvider).isEqualTo(A_HOMESERVER_URL)
                 assertThat(accountProviderDataSource.flow.first().url).isEqualTo(AuthenticationConfig.MATRIX_ORG_URL)
                 it.eventSink(OnBoardingEvent.OnSignIn(A_HOMESERVER_URL_2))
-                skipItems(1) // Loading
                 // Account data source has been updated
                 assertThat(accountProviderDataSource.flow.first().url).isEqualTo(A_HOMESERVER_URL_2)
                 // Check an error was returned
-                val submittedState = awaitItem()
+                val submittedState = awaitStateWhere { it.loginModeState.loginMode is AsyncData.Failure }
                 assertThat(submittedState.loginModeState.loginMode).isInstanceOf(AsyncData.Failure::class.java)
 
                 // Assert the error is then cleared
                 submittedState.eventSink(OnBoardingEvent.ClearError)
-                val clearedState = awaitItem()
+                val clearedState = awaitStateWhere { it.loginModeState.loginMode is AsyncData.Uninitialized }
                 assertThat(clearedState.loginModeState.loginMode).isEqualTo(AsyncData.Uninitialized)
             }
         }
@@ -336,3 +332,10 @@ fun createLoginModePresenter(
     ),
     saveAccountProviderToHistory = saveAccountProviderToHistory,
 )
+
+private suspend fun ReceiveTurbine<OnBoardingState>.awaitStateWhere(predicate: (OnBoardingState) -> Boolean): OnBoardingState {
+    while (true) {
+        val state = awaitItem()
+        if (predicate(state)) return state
+    }
+}

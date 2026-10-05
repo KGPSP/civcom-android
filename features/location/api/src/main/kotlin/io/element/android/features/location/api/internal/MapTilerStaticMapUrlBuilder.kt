@@ -69,7 +69,7 @@ internal class MapTilerStaticMapUrlBuilder(
         return "$baseUrl/$mapId/static/$lon,$lat,$finalZoom/${finalWidth}x${finalHeight}$scale.webp?key=$apiKey&attribution=topright"
     }
 
-    override fun isServiceAvailable() = apiKey.isNotEmpty()
+    override fun isServiceAvailable() = false
 }
 
 private fun coerceWidthAndHeight(width: Int, height: Int, is2x: Boolean): Pair<Int, Int> {

@@ -19,6 +19,7 @@ import io.element.android.libraries.core.extensions.mapFailure
 import io.element.android.libraries.core.extensions.runCatchingExceptions
 import io.element.android.libraries.featureflag.api.FeatureFlagService
 import io.element.android.libraries.featureflag.api.FeatureFlags
+import io.element.android.libraries.matrix.api.CivcomPolicy
 import io.element.android.libraries.matrix.api.MatrixClient
 import io.element.android.libraries.matrix.api.auth.AuthenticationException
 import io.element.android.libraries.matrix.api.auth.ElementClassicSession
@@ -130,7 +131,8 @@ class RustMatrixAuthenticationService(
             val emptySessionPath = rotateSessionPath()
             runCatchingExceptions {
                 val client = makeClient(sessionPaths = emptySessionPath) {
-                    serverNameOrHomeserverUrl(homeserver)
+                    require(CivcomPolicy.isAllowedHomeserver(homeserver)) { "Unsupported CIVCOM homeserver" }
+                    serverNameOrHomeserverUrl(CivcomPolicy.HOMESERVER)
                 }
 
                 currentClient = client
@@ -239,6 +241,7 @@ class RustMatrixAuthenticationService(
         return withContext(coroutineDispatchers.io) {
             runCatchingExceptions {
                 val client = currentClient ?: error("You need to call `setHomeserver()` first")
+                require(prompt == OAuthPrompt.Login) { "CIVCOM accounts are provisioned by administrators" }
                 val oAuthAuthorizationData = client.urlForOauth(
                     oauthConfiguration = oAuthConfigurationProvider.get(),
                     prompt = prompt.toRustPrompt(),
