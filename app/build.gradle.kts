@@ -213,6 +213,52 @@ androidComponents {
             }
         }
 
+        // Every signed variant validates its own application ID and resolved signing configuration.
+        if (variant.buildType == "release" || variant.buildType == "nightly") {
+            val variantTaskName = variant.name.replaceFirstChar(Char::titlecase)
+            val signingConfig = android.buildTypes.getByName(requireNotNull(variant.buildType)).signingConfig
+            val verifyVariant = tasks.register("verifyCivcom$variantTaskName") {
+                doLast {
+                    val packageName = variant.applicationId.get()
+                    fun required(name: String) = requireNotNull(System.getenv(name)?.takeIf(String::isNotBlank)) {
+                        "Missing CIVCOM prerequisite for $packageName: $name"
+                    }
+                    val signing = requireNotNull(signingConfig) { "CIVCOM signing configuration missing for $packageName" }
+                    require(signing.name == "civcomRelease") { "CIVCOM release signing required for $packageName" }
+                    val keyAlias = requireNotNull(signing.keyAlias) { "Missing CIVCOM_RELEASE_KEY_ALIAS for $packageName" }
+                    require(!keyAlias.equals("androiddebugkey", ignoreCase = true)) { "Debug signing is forbidden for CIVCOM release" }
+                    val password = requireNotNull(signing.storePassword) { "Missing CIVCOM_RELEASE_STORE_PASSWORD for $packageName" }
+                    val keyStore = KeyStore.getInstance(
+                        requireNotNull(signing.storeFile) { "Missing CIVCOM_RELEASE_STORE_FILE for $packageName" },
+                        password.toCharArray(),
+                    )
+                    val certificate = requireNotNull(keyStore.getCertificate(keyAlias)) { "CIVCOM signing certificate missing" }
+                    val keyPassword = requireNotNull(signing.keyPassword) { "Missing CIVCOM_RELEASE_KEY_PASSWORD for $packageName" }
+                    requireNotNull(keyStore.getKey(keyAlias, keyPassword.toCharArray())) { "CIVCOM signing key missing" }
+                    val fingerprint = MessageDigest.getInstance("SHA-256").digest(certificate.encoded)
+                        .joinToString(":") { "%02X".format(it) }
+                    val associations = groovy.json.JsonSlurper().parse(file(required("CIVCOM_ASSETLINKS_JSON"))) as List<*>
+                    require(associations.any { entry ->
+                        val item = entry as Map<*, *>
+                        val target = item["target"] as? Map<*, *>
+                        val certificates = target?.get("sha256_cert_fingerprints") as? List<*>
+                        target?.get("namespace") == "android_app" && target?.get("package_name") == packageName &&
+                            certificates?.contains(fingerprint) == true &&
+                            (item["relation"] as? List<*>)?.contains("delegate_permission/common.handle_all_urls") == true
+                    }) { "CIVCOM app links do not match $packageName and its actual signing certificate" }
+                    val firebaseEnvironment = if (variant.buildType == "nightly") "CIVCOM_FIREBASE_DEV_JSON" else "CIVCOM_FIREBASE_PROD_JSON"
+                    val firebase = groovy.json.JsonSlurper().parse(file(required(firebaseEnvironment))) as Map<*, *>
+                    val project = firebase["project_info"] as? Map<*, *>
+                    val clients = firebase["client"] as? List<*>
+                    require(project?.get("project_id") == "civcom-soia-kgpsp" && clients?.any { client ->
+                        val info = (client as? Map<*, *>)?.get("client_info") as? Map<*, *>
+                        (info?.get("android_client_info") as? Map<*, *>)?.get("package_name") == packageName
+                    } == true) { "CIVCOM Firebase metadata does not match $packageName" }
+                }
+            }
+            tasks.matching { it.name == "pre${variantTaskName}Build" }.configureEach { dependsOn(verifyVariant) }
+        }
+
         // Assigns a different version code for each output APK
         // other than the universal APK.
         variant.outputs.forEach { output ->
@@ -348,34 +394,3 @@ configurations.all {
         }
     }
 }
-
-// Signed variants cannot be packaged with inherited/debug keys or unprovisioned push/domain identity.
-val verifyCivcomRelease by tasks.registering {
-    doLast {
-        fun required(name: String) = requireNotNull(System.getenv(name)?.takeIf(String::isNotBlank)) { "Missing CIVCOM prerequisite: $name" }
-        val password = required("CIVCOM_RELEASE_STORE_PASSWORD").toCharArray()
-        val keyStore = KeyStore.getInstance(file(required("CIVCOM_RELEASE_STORE_FILE")), password)
-        val keyAlias = required("CIVCOM_RELEASE_KEY_ALIAS")
-        require(!keyAlias.equals("androiddebugkey", ignoreCase = true)) { "Debug signing is forbidden for CIVCOM release" }
-        val certificate = requireNotNull(keyStore.getCertificate(keyAlias)) { "CIVCOM signing certificate missing" }
-        required("CIVCOM_RELEASE_KEY_PASSWORD")
-        val fingerprint = MessageDigest.getInstance("SHA-256").digest(certificate.encoded)
-            .joinToString(":") { "%02X".format(it) }
-        val associations = groovy.json.JsonSlurper().parse(file(required("CIVCOM_ASSETLINKS_JSON"))) as List<*>
-        val packageName = if (gradle.startParameter.taskNames.any { it.contains("Nightly", ignoreCase = true) }) {
-            "pl.gov.psp.civcom.nightly"
-        } else {
-            "pl.gov.psp.civcom"
-        }
-        require(associations.any { entry ->
-            val item = entry as Map<*, *>
-            val target = item["target"] as? Map<*, *>
-            val certificates = target?.get("sha256_cert_fingerprints") as? List<*>
-            target?.get("package_name") == packageName && certificates?.contains(fingerprint) == true &&
-                (item["relation"] as? List<*>)?.contains("delegate_permission/common.handle_all_urls") == true
-        }) { "CIVCOM app links do not match package and actual signing certificate" }
-        required(if (packageName.endsWith(".nightly")) "CIVCOM_FIREBASE_DEV_JSON" else "CIVCOM_FIREBASE_PROD_JSON")
-    }
-}
-tasks.matching { it.name.startsWith("pre") && (it.name.contains("Release") || it.name.contains("Nightly")) && it.name.endsWith("Build") }
-    .configureEach { dependsOn(verifyCivcomRelease) }

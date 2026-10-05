@@ -25,6 +25,7 @@ class FakeFfiClientBuilder(
     val buildResult: () -> Client = { FakeFfiClient(withUtdHook = {}) }
 ) : ClientBuilder(NoHandle) {
     var lastServerNameOrUrl: String? = null
+    var lastHomeserverUrl: String? = null
 
     override fun addRootCertificates(certificates: List<ByteArray>) = this
     override fun autoEnableBackups(autoEnableBackups: Boolean) = this
@@ -35,7 +36,10 @@ class FakeFfiClientBuilder(
     override fun disableBuiltInRootCertificates() = this
     override fun decryptionSettings(decryptionSettings: DecryptionSettings): ClientBuilder = this
     override fun disableSslVerification() = this
-    override fun homeserverUrl(url: String) = this
+    override fun homeserverUrl(url: String): ClientBuilder {
+        lastHomeserverUrl = url
+        return this
+    }
     override fun proxy(url: String) = this
     override fun requestConfig(config: RequestConfig) = this
     override fun roomKeyRecipientStrategy(strategy: CollectStrategy) = this

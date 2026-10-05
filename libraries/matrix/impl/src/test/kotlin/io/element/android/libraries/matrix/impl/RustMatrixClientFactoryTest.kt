@@ -12,6 +12,8 @@ import com.google.common.truth.Truth.assertThat
 import io.element.android.libraries.featureflag.test.FakeFeatureFlagService
 import io.element.android.libraries.matrix.api.core.SessionId
 import io.element.android.libraries.matrix.impl.auth.FakeProxyProvider
+import io.element.android.libraries.matrix.impl.fixtures.fakes.FakeFfiClient
+import io.element.android.libraries.matrix.impl.fixtures.fakes.FakeFfiClientBuilder
 import io.element.android.libraries.matrix.impl.room.FakeTimelineEventFilterFactory
 import io.element.android.libraries.matrix.impl.storage.FakeSqliteStoreBuilderProvider
 import io.element.android.libraries.network.useragent.SimpleUserAgentProvider
@@ -31,14 +33,61 @@ import java.io.File
 
 class RustMatrixClientFactoryTest {
     @Test
+    fun `official restored aliases reach builder and SDK session as fixed API`() = runTest {
+        listOf("soia.info", "https://soia.info/", "https://matrix.soia.info").forEach { alias ->
+            val client = FakeFfiClient(withUtdHook = {})
+            val builder = FakeFfiClientBuilder(buildResult = { client })
+            val sut = createRustMatrixClientFactory(
+                clientBuilderProvider = FakeClientBuilderProvider { builder },
+                workManagerScheduler = FakeWorkManagerScheduler(submitLambda = {}),
+            )
+            val data = aSessionData(sessionId = "@alice:soia.info").copy(homeserverUrl = alias)
+            val restored = sut.create(data)
+            assertThat(builder.lastHomeserverUrl).isEqualTo("https://matrix.soia.info")
+            assertThat(client.restoredSession?.homeserverUrl).isEqualTo("https://matrix.soia.info")
+            assertThat(client.restoredSession?.accessToken).isEqualTo(data.accessToken)
+            restored.destroy()
+        }
+    }
+
+    @Test
+    fun `foreign restored URLs and Matrix identities never obtain an SDK builder`() = runTest {
+        val official = aSessionData(sessionId = "@alice:soia.info").copy(homeserverUrl = "https://matrix.soia.info")
+        listOf(
+            official.copy(homeserverUrl = "https://matrix.org"),
+            official.copy(homeserverUrl = "https://matrix.soia.info/foreign"),
+            official.copy(userId = "@alice:matrix.org"),
+            official.copy(userId = "@alice:soia.info.attacker.invalid"),
+            official.copy(userId = "alice:soia.info"),
+        ).forEach { data ->
+            var builderCalls = 0
+            val sut = createRustMatrixClientFactory(
+                clientBuilderProvider = FakeClientBuilderProvider {
+                    builderCalls++
+                    FakeFfiClientBuilder()
+                },
+                workManagerScheduler = FakeWorkManagerScheduler(submitLambda = {}),
+            )
+            var rejected = false
+            try {
+                sut.create(data)
+            } catch (_: IllegalArgumentException) {
+                rejected = true
+            }
+            assertThat(rejected).isTrue()
+            assertThat(builderCalls).isEqualTo(0)
+        }
+    }
+
+    @Test
     fun test() = runTest {
         val scheduleVacuumLambda = lambdaRecorder<WorkManagerRequestBuilder, Unit> {}
         val workManagerScheduler = FakeWorkManagerScheduler(submitLambda = scheduleVacuumLambda)
         val sut = createRustMatrixClientFactory(workManagerScheduler = workManagerScheduler)
 
-        val result = sut.create(aSessionData())
+        val result = sut.create(aSessionData(sessionId = "@alice:soia.info").copy(homeserverUrl = "https://matrix.soia.info"))
 
-        assertThat(result.sessionId).isEqualTo(SessionId("@alice:server.org"))
+        assertThat(result.sessionId).isEqualTo(SessionId("@alice:soia.info"))
         scheduleVacuumLambda.assertions().isCalledOnce()
         result.destroy()
     }

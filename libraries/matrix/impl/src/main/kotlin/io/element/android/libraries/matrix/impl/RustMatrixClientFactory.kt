@@ -18,6 +18,7 @@ import io.element.android.libraries.di.CacheDirectory
 import io.element.android.libraries.di.annotations.AppCoroutineScope
 import io.element.android.libraries.featureflag.api.FeatureFlagService
 import io.element.android.libraries.featureflag.api.FeatureFlags
+import io.element.android.libraries.matrix.api.CivcomPolicy
 import io.element.android.libraries.matrix.api.core.SessionId
 import io.element.android.libraries.matrix.api.paths.SessionPaths
 import io.element.android.libraries.matrix.impl.analytics.UtdTracker
@@ -78,6 +79,9 @@ class RustMatrixClientFactory(
     )
 
     suspend fun create(sessionData: SessionData): RustMatrixClient = withContext(coroutineDispatchers.io) {
+        require(CivcomPolicy.isAllowedHomeserver(sessionData.homeserverUrl)) { "Unsupported CIVCOM restored homeserver" }
+        require(CivcomPolicy.isAllowedUserId(sessionData.userId)) { "Unsupported CIVCOM restored Matrix identity" }
+        val officialSessionData = sessionData.copy(homeserverUrl = CivcomPolicy.HOMESERVER)
         // This secret is called 'passphrase' for historical reasons, but it can be a raw key or an actual passphrase
         val clientSecret = sessionData.passphrase?.let(ClientSecret::fromString)
         val sessionPaths = sessionData.getSessionPaths()
@@ -98,7 +102,7 @@ class RustMatrixClientFactory(
             slidingSyncType = ClientBuilderSlidingSync.Restored,
             isMessageSearchAvailable = isMessageSearchAvailable,
         )
-            .homeserverUrl(sessionData.homeserverUrl)
+            .homeserverUrl(CivcomPolicy.HOMESERVER)
             .enableAutomaticBackPagination(featureFlagService.isFeatureEnabled(FeatureFlags.AutomaticBackPagination))
             .let { (clientBuilderEnterpriseHook(RustMatrixClientBuilder(it), SessionId(sessionData.userId)) as RustMatrixClientBuilder).inner }
             .use { it.build() }
@@ -116,9 +120,9 @@ class RustMatrixClientFactory(
             )
         )
 
-        client.restoreSession(sessionData.toSession())
+        client.restoreSession(officialSessionData.toSession())
 
-        create(client, sessionData, isMessageSearchAvailable)
+        create(client, officialSessionData, isMessageSearchAvailable)
     }
 
     suspend fun create(

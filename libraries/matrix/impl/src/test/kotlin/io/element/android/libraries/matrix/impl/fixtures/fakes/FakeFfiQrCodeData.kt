@@ -14,8 +14,11 @@ import org.matrix.rustcomponents.sdk.QrCodeData
 
 class FakeFfiQrCodeData(
     private val serverNameResult: () -> String? = { lambdaError() },
+    private val baseUrlResult: () -> String? = { null },
     private val toBytesResult: () -> ByteArray = { lambdaError() },
 ) : QrCodeData(NoHandle) {
+    override fun baseUrl(): String? = baseUrlResult()
+
     override fun serverName(): String? {
         return serverNameResult()
     }
