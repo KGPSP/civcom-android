@@ -93,7 +93,7 @@ class DefaultAppPreferencesStore(
 
     override fun getThemeFlow(): Flow<String?> {
         return store.data.map { prefs ->
-            prefs[themeKey]
+            prefs[themeKey] ?: "Dark"
         }
     }
 

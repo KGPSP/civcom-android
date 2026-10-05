@@ -70,8 +70,8 @@ class DefaultEnterpriseServiceTest {
         val defaultEnterpriseService = createDefaultEnterpriseService()
         defaultEnterpriseService.semanticColorsFlow(null).test {
             val initialState = awaitItem()
-            assertThat(initialState.light.bgAccentRest).isEqualTo(Color(0xFFC01F2A))
-            assertThat(initialState.dark.bgAccentRest).isEqualTo(Color(0xFFD22730))
+            assertThat(initialState.light.bgActionPrimaryRest).isEqualTo(Color(0xFFC01F2A))
+            assertThat(initialState.dark.bgActionPrimaryRest).isEqualTo(Color(0xFFD22730))
             awaitComplete()
         }
     }
@@ -91,8 +91,8 @@ class DefaultEnterpriseServiceTest {
         val defaultEnterpriseService = createDefaultEnterpriseService()
         defaultEnterpriseService.semanticColorsFlow(A_SESSION_ID).test {
             val initialState = awaitItem()
-            assertThat(initialState.light.bgAccentRest).isEqualTo(Color(0xFFC01F2A))
-            assertThat(initialState.dark.bgAccentRest).isEqualTo(Color(0xFFD22730))
+            assertThat(initialState.light.bgActionPrimaryRest).isEqualTo(Color(0xFFC01F2A))
+            assertThat(initialState.dark.bgActionPrimaryRest).isEqualTo(Color(0xFFD22730))
             awaitComplete()
         }
     }
