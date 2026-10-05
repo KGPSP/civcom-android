@@ -16,6 +16,10 @@ public final class CivcomPolicy {
 
     private CivcomPolicy() { }
 
+    public static boolean isAllowedUserId(String value) {
+        return value != null && value.matches("^@[^:]+:soia\\.info$");
+    }
+
     public static boolean isAllowedHomeserver(String value) {
         if (SERVER_NAME.equals(value)) return true;
         try {

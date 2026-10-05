@@ -26,11 +26,13 @@ jobs:
       - name: Install exact Android tools
         run: sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0' 'build-tools;36.0.0'
       - name: Build development application
-        run: ./gradlew :app:assembleGplayDebug --no-daemon --no-configuration-cache
+        run: ./gradlew :app:assembleGplayDebug --no-daemon --no-configuration-cache --max-workers=2 '-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8'
       - name: Unit and architectural tests
-        run: ./gradlew :app:testGplayDebugUnitTest testDebugUnitTest --no-daemon --no-configuration-cache
+        run: ./gradlew :app:testGplayDebugUnitTest testDebugUnitTest --no-daemon --no-configuration-cache --max-workers=2 '-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8'
       - name: Required upstream quality checks
-        run: ./gradlew ktlintCheck detekt :app:lintGplayDebug :app:lintFdroidDebug lintDebug --no-daemon --no-configuration-cache
+        run: ./gradlew ktlintCheck detekt :app:lintGplayDebug :app:lintFdroidDebug lintDebug --no-daemon --no-configuration-cache --max-workers=2 '-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8'
+      - name: Native release gate regression with disposable fixtures
+        run: python3 tools/civcom/check_release_gates.py --evidence-dir "$RUNNER_TEMP/civcom-release-gates" '--gradle-arg=-Dorg.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8'
       - name: Documentation links and contents
         run: python3 tools/docs/generate_toc.py --verify ./*.md docs/**/*.md
 # No publishing, signing credentials, fork secrets, pull_request_target, telemetry, or uploads.

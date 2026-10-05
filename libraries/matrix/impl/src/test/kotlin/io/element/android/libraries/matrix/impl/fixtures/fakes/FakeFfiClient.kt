@@ -29,6 +29,8 @@ import org.matrix.rustcomponents.sdk.NoHandle
 import org.matrix.rustcomponents.sdk.NotificationClient
 import org.matrix.rustcomponents.sdk.NotificationProcessSetup
 import org.matrix.rustcomponents.sdk.NotificationSettings
+import org.matrix.rustcomponents.sdk.OAuthConfiguration
+import org.matrix.rustcomponents.sdk.OAuthPrompt
 import org.matrix.rustcomponents.sdk.ProfileListener
 import org.matrix.rustcomponents.sdk.PusherIdentifiers
 import org.matrix.rustcomponents.sdk.PusherKind
@@ -42,6 +44,7 @@ import org.matrix.rustcomponents.sdk.SyncServiceBuilder
 import org.matrix.rustcomponents.sdk.TaskHandle
 import org.matrix.rustcomponents.sdk.UnableToDecryptDelegate
 import org.matrix.rustcomponents.sdk.UserProfile
+import uniffi.matrix_sdk.OAuthAuthorizationData
 import uniffi.matrix_sdk_base.MediaRetentionPolicy
 
 class FakeFfiClient(
@@ -68,18 +71,23 @@ class FakeFfiClient(
     private val getUrlResult: (String) -> ByteArray = { lambdaError() },
     private val contentScannerResult: () -> ContentScanner = { FakeFfiContentScanner() },
     private val closeResult: () -> Unit = {},
+    private val urlForOauthResult: () -> OAuthAuthorizationData = { lambdaError() },
 ) : Client(NoHandle) {
-    override fun userId(): String = userId
-    override fun deviceId(): String = deviceId
-    override fun homeserver(): String = homeserver
+    var restoredSession: Session? = null
+
+    override fun userId(): String = restoredSession?.userId ?: userId
+    override fun deviceId(): String = restoredSession?.deviceId ?: deviceId
+    override fun homeserver(): String = restoredSession?.homeserverUrl ?: homeserver
     override fun server(): String? = server
     override suspend fun notificationClient(processSetup: NotificationProcessSetup) = notificationClient
     override suspend fun getNotificationSettings(): NotificationSettings = notificationSettings
     override fun encryption(): Encryption = encryption
-    override fun session(): Session = session
+    override fun session(): Session = restoredSession ?: session
     override fun setDelegate(delegate: ClientDelegate?): TaskHandle = FakeFfiTaskHandle()
     override suspend fun cachedAvatarUrl(): String? = null
-    override suspend fun restoreSession(session: Session) = Unit
+    override suspend fun restoreSession(session: Session) {
+        restoredSession = session
+    }
     override fun syncService(): SyncServiceBuilder = FakeFfiSyncServiceBuilder()
     override suspend fun spaceService(): SpaceService = FakeFfiSpaceService()
     override fun roomDirectorySearch(): RoomDirectorySearch = FakeFfiRoomDirectorySearch()
@@ -117,6 +125,14 @@ class FakeFfiClient(
     override suspend fun getProfile(userId: String): UserProfile {
         return getProfileResult(userId)
     }
+
+    override suspend fun urlForOauth(
+        oauthConfiguration: OAuthConfiguration,
+        prompt: OAuthPrompt?,
+        loginHint: String?,
+        deviceId: String?,
+        additionalScopes: List<String>?,
+    ): OAuthAuthorizationData = urlForOauthResult()
 
     override suspend fun homeserverLoginDetails(): HomeserverLoginDetails {
         return homeserverLoginDetailsResult()

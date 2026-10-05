@@ -37,26 +37,17 @@ import io.element.android.libraries.matrix.api.verification.SessionVerifiedStatu
 import io.element.android.libraries.matrix.impl.ClientBuilderSlidingSync
 import io.element.android.libraries.matrix.impl.RustMatrixClientFactory
 import io.element.android.libraries.matrix.impl.RustTemporaryMatrixClient
-import io.element.android.libraries.matrix.impl.auth.qrlogin.QrErrorMapper
-import io.element.android.libraries.matrix.impl.auth.qrlogin.SdkQrCodeLoginData
-import io.element.android.libraries.matrix.impl.auth.qrlogin.toStep
 import io.element.android.libraries.matrix.impl.exception.mapClientException
 import io.element.android.libraries.matrix.impl.keys.SecretGenerator
 import io.element.android.libraries.matrix.impl.mapper.toSessionData
 import io.element.android.libraries.matrix.impl.paths.SessionPathsFactory
 import io.element.android.libraries.sessionstorage.api.LoginType
 import io.element.android.libraries.sessionstorage.api.SessionStore
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.matrix.rustcomponents.sdk.Client
 import org.matrix.rustcomponents.sdk.ClientBuilder
-import org.matrix.rustcomponents.sdk.HumanQrLoginException
-import org.matrix.rustcomponents.sdk.QrCodeData
-import org.matrix.rustcomponents.sdk.QrCodeDecodeException
-import org.matrix.rustcomponents.sdk.QrLoginProgress
-import org.matrix.rustcomponents.sdk.QrLoginProgressListener
 import org.matrix.rustcomponents.sdk.SecretsBundleWithUserId
 import timber.log.Timber
 import uniffi.matrix_sdk.OAuthAuthorizationData
@@ -251,13 +242,15 @@ class RustMatrixAuthenticationService(
                     additionalScopes = emptyList(),
                 )
                 val getUrlResolver = RustTemporaryMatrixClient(client, sessionPaths)
-                val url = oAuthAuthorizationData.loginUrl()
-                    .let {
+                val authorizationUrl = oAuthAuthorizationData.loginUrl()
+                require(CivcomPolicy.isTrustedOAuthEndpoint(authorizationUrl)) { "Unsupported CIVCOM authorization endpoint" }
+                val url = authorizationUrl.let {
                         enterpriseService.tweakMasUrl(
                             url = it,
                             urlContentFetcher = getUrlResolver,
                         )
                     }
+                require(CivcomPolicy.isTrustedOAuthEndpoint(url)) { "Unsupported CIVCOM authorization endpoint" }
                 pendingOAuthAuthorizationData = oAuthAuthorizationData
                 OAuthDetails(url)
             }.mapFailure { failure ->
@@ -344,64 +337,12 @@ class RustMatrixAuthenticationService(
         }
     }
 
-    override suspend fun loginWithQrCode(qrCodeData: MatrixQrCodeLoginData, progress: (QrCodeLoginStep) -> Unit) =
-        withContext(coroutineDispatchers.io) {
-            val sdkQrCodeLoginData = (qrCodeData as SdkQrCodeLoginData).rustQrCodeData
-            val emptySessionPaths = rotateSessionPath()
-            val oAuthConfiguration = oAuthConfigurationProvider.get()
-            val progressListener = object : QrLoginProgressListener {
-                override fun onUpdate(state: QrLoginProgress) {
-                    Timber.d("QR Code login progress: $state")
-                    progress(state.toStep())
-                }
-            }
-            runCatchingExceptions {
-                val client = makeQrCodeLoginClient(
-                    sessionPaths = emptySessionPaths,
-                    qrCodeData = sdkQrCodeLoginData,
-                )
-                client.newLoginWithQrCodeHandler(
-                    oauthConfiguration = oAuthConfiguration,
-                ).use {
-                    it.scan(
-                        qrCodeData = qrCodeData.rustQrCodeData,
-                        progressListener = progressListener,
-                    )
-                }
-                // Ensure that the user is not already logged in with the same account
-                ensureNotAlreadyLoggedIn(client)
-                val sessionData = client.session()
-                    .toSessionData(
-                        isTokenValid = true,
-                        loginType = LoginType.QR,
-                        passphrase = pendingKey.formattedAsString(),
-                        sessionPaths = emptySessionPaths,
-                    )
-                val matrixClient = rustMatrixClientFactory.create(client, sessionData, isMessageSearchAvailable())
-
-                // Apply enterprise hooks to the newly created client as soon as possible
-                clientEnterpriseHook(matrixClient)
-
-                newMatrixClientObservers.forEach { it.invoke(matrixClient) }
-                sessionStore.addSession(sessionData)
-
-                // Clean up the strong reference held here since it's no longer necessary
-                clear(destroyClient = false)
-
-                SessionId(sessionData.userId)
-            }.mapFailure {
-                when (it) {
-                    is QrCodeDecodeException -> QrErrorMapper.map(it)
-                    is HumanQrLoginException -> QrErrorMapper.map(it)
-                    else -> it
-                }
-            }.onFailure { throwable ->
-                if (throwable is CancellationException) {
-                    throw throwable
-                }
-                Timber.e(throwable, "Failed to login with QR code")
-            }
-        }
+    override suspend fun loginWithQrCode(
+        qrCodeData: MatrixQrCodeLoginData,
+        progress: (QrCodeLoginStep) -> Unit,
+    ): Result<SessionId> = withContext(coroutineDispatchers.io) {
+        Result.failure(IllegalStateException("QR login is unavailable in CIVCOM"))
+    }
 
     private suspend fun makeClient(
         sessionPaths: SessionPaths,
@@ -416,39 +357,6 @@ class RustMatrixAuthenticationService(
                 isMessageSearchAvailable = isMessageSearchAvailable(),
             )
             .config()
-            .build()
-    }
-
-    private suspend fun makeQrCodeLoginClient(
-        sessionPaths: SessionPaths,
-        qrCodeData: QrCodeData,
-    ): Client {
-        Timber.d("Creating client for QR Code login with simplified sliding sync")
-        // The 2025 version of MSC4108 provides baseUrl; the 2024 version has null baseUrl and uses
-        // serverName instead, which can be null or malformed. We only enforce presence/non-blankness
-        // here and rely on serverNameOrHomeserverUrl()/the Rust builder layer to validate structure.
-        val baseUrlOrServerName = qrCodeData.baseUrl() ?: qrCodeData.serverName()
-
-        if (baseUrlOrServerName == null) {
-            // With the 2024 version of MSC4108 we treat the absence of serverName as meaning that
-            // the other device is not signed in.
-            Timber.e("The QR code is from a device that is not yet signed in")
-            throw HumanQrLoginException.OtherDeviceNotSignedIn()
-        }
-
-        if (baseUrlOrServerName.isBlank()) {
-            Timber.e("The QR code contains an empty base URL or server name, which is invalid")
-            throw HumanQrLoginException.Unknown()
-        }
-
-        return rustMatrixClientFactory
-            .getBaseClientBuilder(
-                sessionPaths = sessionPaths,
-                clientSecret = pendingKey,
-                slidingSyncType = ClientBuilderSlidingSync.Discovered,
-                isMessageSearchAvailable = isMessageSearchAvailable(),
-            )
-            .serverNameOrHomeserverUrl(baseUrlOrServerName)
             .build()
     }
 
