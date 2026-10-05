@@ -32,6 +32,28 @@ import java.io.File
 
 class RustMatrixAuthenticationServiceTest {
     @Test
+    fun `official logical name is remapped to the fixed API at the actual SDK builder boundary`() = runTest {
+        val builder = FakeFfiClientBuilder(buildResult = {
+            FakeFfiClient(homeserverLoginDetailsResult = { FakeFfiHomeserverLoginDetails() })
+        })
+        val service = createRustMatrixAuthenticationService(
+            clientBuilderProvider = FakeClientBuilderProvider(provideResult = { builder }),
+        )
+        assertThat(service.setHomeserver("soia.info").isSuccess).isTrue()
+        assertThat(builder.lastServerNameOrUrl).isEqualTo("https://matrix.soia.info")
+    }
+
+    @Test
+    fun `foreign discovery never reaches the SDK endpoint setter`() = runTest {
+        val builder = FakeFfiClientBuilder()
+        val service = createRustMatrixAuthenticationService(
+            clientBuilderProvider = FakeClientBuilderProvider(provideResult = { builder }),
+        )
+        assertThat(service.setHomeserver("matrix.org").isFailure).isTrue()
+        assertThat(builder.lastServerNameOrUrl).isNull()
+    }
+
+    @Test
     fun `setHomeserver is successful`() = runTest {
         val sut = createRustMatrixAuthenticationService(
             clientBuilderProvider = FakeClientBuilderProvider(
@@ -48,7 +70,7 @@ class RustMatrixAuthenticationServiceTest {
                 }
             ),
         )
-        assertThat(sut.setHomeserver("matrix.org").isSuccess).isTrue()
+        assertThat(sut.setHomeserver("soia.info").isSuccess).isTrue()
     }
 
     @Test
@@ -70,7 +92,7 @@ class RustMatrixAuthenticationServiceTest {
                 },
             ),
         )
-        assertThat(sut.setHomeserver("matrix.org").isFailure).isTrue()
+        assertThat(sut.setHomeserver("soia.info").isFailure).isTrue()
         closeResult.assertions().isCalledOnce()
     }
 

@@ -77,7 +77,7 @@ class DefaultPusherSubscriber(
             // TODO + abs(activeSessionHolder.getActiveSession().myUserId.hashCode())
             profileTag = DEFAULT_PUSHER_FILE_TAG + "_",
             // TODO localeProvider.current().language
-            lang = "en",
+            lang = "pl",
             appDisplayName = buildMeta.applicationName,
             // TODO getDeviceInfoUseCase.execute().displayName().orEmpty()
             deviceDisplayName = "MyDevice",

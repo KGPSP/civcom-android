@@ -57,7 +57,7 @@ class ConfirmAccountProviderPresenterTest {
     }
 
     @Test
-    fun `present - continue password login`() = runTest {
+    fun `present - password-only login is rejected`() = runTest {
         val authenticationService = FakeMatrixAuthenticationService(
             setHomeserverResult = {
                 Result.success(aMatrixHomeServerDetails(supportsPasswordLogin = true))
@@ -69,8 +69,8 @@ class ConfirmAccountProviderPresenterTest {
         presenter.test {
             val initialState = awaitItem()
             initialState.eventSink.invoke(ConfirmAccountProviderEvent.Continue(AuthenticationConfig.MATRIX_ORG_URL))
-            val successState = awaitLoginMode { it is AsyncData.Success }
-            assertThat(successState.loginModeState.loginMode.dataOrNull()).isEqualTo(LoginMode.PasswordLogin)
+            val rejectedState = awaitLoginMode { it is AsyncData.Failure }
+            assertThat(rejectedState.loginModeState.loginMode.errorOrNull()).isNotNull()
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -287,7 +287,7 @@ class ConfirmAccountProviderPresenterTest {
     }
 
     @Test
-    fun `present - confirm account creation with OAuth is successful`() = runTest {
+    fun `present - account creation is rejected even with OAuth`() = runTest {
         val authenticationService = FakeMatrixAuthenticationService(
             setHomeserverResult = {
                 Result.success(aMatrixHomeServerDetails(supportsOAuthLogin = true))
@@ -300,8 +300,8 @@ class ConfirmAccountProviderPresenterTest {
         presenter.test {
             val initialState = awaitItem()
             initialState.eventSink(ConfirmAccountProviderEvent.Continue(AuthenticationConfig.MATRIX_ORG_URL))
-            val submittedState = awaitLoginMode { it is AsyncData.Success }
-            assertThat(submittedState.loginModeState.loginMode.dataOrNull()).isInstanceOf(LoginMode.OAuth::class.java)
+            val submittedState = awaitLoginMode { it is AsyncData.Failure }
+            assertThat(submittedState.loginModeState.loginMode.errorOrNull()).isInstanceOf(AccountCreationNotSupported::class.java)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -329,7 +329,7 @@ class ConfirmAccountProviderPresenterTest {
         val authenticationService = FakeMatrixAuthenticationService(
             setHomeserverResult = { url ->
                 submittedUrls.add(url)
-                Result.success(aMatrixHomeServerDetails(supportsPasswordLogin = true))
+                Result.success(aMatrixHomeServerDetails(supportsOAuthLogin = true))
             },
         )
         val presenter = createConfirmAccountProviderPresenter(
@@ -526,7 +526,7 @@ class ConfirmAccountProviderPresenterTest {
         presenter.test {
             val initialState = awaitItem()
             initialState.eventSink(ConfirmAccountProviderEvent.Continue("@alice:example.org"))
-            awaitLoginMode { it is AsyncData.Success }
+            awaitLoginMode { it is AsyncData.Failure }
             assertThat(authenticationService.getOAuthUrlLoginHint).isNull()
             cancelAndIgnoreRemainingEvents()
         }

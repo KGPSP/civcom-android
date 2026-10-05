@@ -1,5 +1,4 @@
 import extension.buildConfigFieldStr
-import extension.readLocalProperty
 import extension.setupDependencyInjection
 import extension.testCommonDependencies
 
@@ -31,33 +30,23 @@ android {
     defaultConfig {
         buildConfigFieldStr(
             name = "SENTRY_DSN",
-            value = System.getenv("ELEMENT_CALL_SENTRY_DSN")
-                ?: readLocalProperty("features.call.sentry.dsn")
-                ?: ""
+            value = ""
         )
         buildConfigFieldStr(
             name = "POSTHOG_USER_ID",
-            value = System.getenv("ELEMENT_CALL_POSTHOG_USER_ID")
-                ?: readLocalProperty("features.call.posthog.userid")
-                ?: ""
+            value = ""
         )
         buildConfigFieldStr(
             name = "POSTHOG_API_HOST",
-            value = System.getenv("ELEMENT_CALL_POSTHOG_API_HOST")
-                ?: readLocalProperty("features.call.posthog.api.host")
-                ?: ""
+            value = ""
         )
         buildConfigFieldStr(
             name = "POSTHOG_API_KEY",
-            value = System.getenv("ELEMENT_CALL_POSTHOG_API_KEY")
-                ?: readLocalProperty("features.call.posthog.api.key")
-                ?: ""
+            value = ""
         )
         buildConfigFieldStr(
             name = "RAGESHAKE_URL",
-            value = System.getenv("ELEMENT_CALL_RAGESHAKE_URL")
-                ?: readLocalProperty("features.call.regeshake.url")
-                ?: ""
+            value = ""
         )
     }
 }

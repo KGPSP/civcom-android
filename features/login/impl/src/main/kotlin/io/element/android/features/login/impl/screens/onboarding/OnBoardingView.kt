@@ -144,7 +144,7 @@ private fun AddFirstAccountScaffold(
                         onBoardingLogoResId = state.onBoardingLogoResId,
                     )
                 } else {
-                    OnBoardingContent(state = state)
+                    OnBoardingContent()
                 }
                 if (state.showDeveloperSettings) {
                     IconButton(
@@ -198,7 +198,7 @@ private fun AddOtherAccountScaffold(
 }
 
 @Composable
-private fun OnBoardingContent(state: OnBoardingState) {
+private fun OnBoardingContent() {
     Box(
         modifier = Modifier.fillMaxSize(),
     ) {
@@ -227,14 +227,14 @@ private fun OnBoardingContent(state: OnBoardingState) {
                 horizontalAlignment = CenterHorizontally,
             ) {
                 Text(
-                    text = stringResource(id = R.string.screen_onboarding_welcome_title),
+                    text = stringResource(id = R.string.screen_onboarding_civcom_title),
                     color = ElementTheme.colors.textPrimary,
                     style = ElementTheme.typography.fontHeadingLgBold,
                     textAlign = TextAlign.Center,
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = stringResource(id = R.string.screen_onboarding_welcome_message, state.productionApplicationName),
+                    text = stringResource(id = R.string.screen_onboarding_civcom_message),
                     color = ElementTheme.colors.textPrimary,
                     style = ElementTheme.typography.fontBodyLgRegular,
                     textAlign = TextAlign.Center,
@@ -303,7 +303,7 @@ private fun OnBoardingButtons(
             )
         } else {
             Button(
-                text = stringResource(id = R.string.screen_onboarding_sign_in_to, defaultAccountProvider),
+                text = stringResource(id = R.string.screen_onboarding_civcom_sign_in),
                 showProgress = isLoading,
                 onClick = {
                     state.eventSink(OnBoardingEvent.OnSignIn(defaultAccountProvider))

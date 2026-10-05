@@ -14,6 +14,17 @@ import com.lemonappdev.konsist.api.verify.assertTrue
 import org.junit.Test
 
 class KonsistLicenseTest {
+    private val civcomOwnedFiles = setOf(
+        "features/location/impl/src/main/kotlin/io/element/android/features/location/impl/DisabledLocationNode.kt",
+        "libraries/push/impl/src/test/kotlin/io/element/android/libraries/push/impl/notifications/CivcomNotificationDisplayerTest.kt",
+    )
+    private val civcomLicense = """
+        Copyright (c) 2026 KG PSP.
+         *
+         * SPDX-License-Identifier: AGPL-3.0-only.
+         * Please see LICENSE files in the repository root for full details.
+        """.trimIndent()
+
     private val publicLicense = """
         /\*
         (?:.*\n)* \* Copyright \(c\) 20\d\d((, |-)20\d\d)? Element Creations Ltd\.
@@ -38,7 +49,11 @@ class KonsistLicenseTest {
                 assertThat(it).isNotEmpty()
             }
             .assertTrue {
-                publicLicense.containsMatchIn(it.text)
+                if (civcomOwnedFiles.any { path -> it.path.endsWith(path) }) {
+                    it.text.contains(civcomLicense)
+                } else {
+                    publicLicense.containsMatchIn(it.text)
+                }
             }
     }
 
@@ -54,7 +69,11 @@ class KonsistLicenseTest {
                     it.name.startsWith("Template ").not()
             }
             .assertTrue {
-                it.text.count("Element Creations Ltd.") == 1
+                if (civcomOwnedFiles.any { path -> it.path.endsWith(path) }) {
+                    it.text.count("KG PSP.") == 1 && it.text.count("Element Creations Ltd.") == 0
+                } else {
+                    it.text.count("Element Creations Ltd.") == 1
+                }
             }
     }
 }

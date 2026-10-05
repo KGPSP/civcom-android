@@ -9,30 +9,26 @@
 package io.element.android.features.preferences.impl.utils
 
 import dev.zacsweers.metro.Inject
-import io.element.android.libraries.core.meta.BuildMeta
-import io.element.android.libraries.core.meta.BuildType
 import io.element.android.libraries.ui.utils.MultipleTapToUnlock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 @Inject
-class ShowDeveloperSettingsProvider(
-    buildMeta: BuildMeta,
-) {
+class ShowDeveloperSettingsProvider {
     companion object {
         const val DEVELOPER_SETTINGS_COUNTER = 7
     }
 
     private val multipleTapToUnlock = MultipleTapToUnlock(DEVELOPER_SETTINGS_COUNTER)
-    private val isDeveloperBuild = buildMeta.buildType != BuildType.RELEASE
+    private val isDeveloperBuild = false
 
     private val _showDeveloperSettings = MutableStateFlow(isDeveloperBuild)
     val showDeveloperSettings: StateFlow<Boolean> = _showDeveloperSettings
 
     fun unlockDeveloperSettings(scope: CoroutineScope) {
         if (multipleTapToUnlock.unlock(scope)) {
-            _showDeveloperSettings.value = true
+            _showDeveloperSettings.value = false
         }
     }
 }

@@ -7,6 +7,6 @@
   -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@drawable/ic_launcher_background"/>
-    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
-    <monochrome android:drawable="@mipmap/ic_launcher_monochrome"/>
+    <foreground android:drawable="@drawable/civcom_mark"/>
+    <monochrome android:drawable="@drawable/civcom_mark"/>
 </adaptive-icon>

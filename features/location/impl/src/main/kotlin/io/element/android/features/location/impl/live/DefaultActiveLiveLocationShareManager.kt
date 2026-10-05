@@ -11,6 +11,7 @@ import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.SingleIn
 import dev.zacsweers.metro.binding
 import io.element.android.features.location.api.Location
+import io.element.android.features.location.api.LocationService
 import io.element.android.features.location.api.live.ActiveLiveLocationShareManager
 import io.element.android.features.location.impl.live.service.LiveLocationReceiver
 import io.element.android.features.location.impl.live.service.LiveLocationSharingCoordinator
@@ -51,6 +52,7 @@ class DefaultActiveLiveLocationShareManager(
     private val liveLocationStore: LiveLocationStore,
     private val clock: SystemClock,
     private val sessionObserver: SessionObserver,
+    private val locationService: LocationService,
 ) : ActiveLiveLocationShareManager, LiveLocationReceiver {
     private data class Timeout(val expiresAt: Instant, val job: Job)
 
@@ -62,6 +64,7 @@ class DefaultActiveLiveLocationShareManager(
     override val sharingRoomIds: StateFlow<Set<RoomId>> = localSharingRoomIds
 
     override suspend fun setup() = withContext(NonCancellable) {
+        if (!locationService.isServiceAvailable()) return@withContext
         if (isSetup.compareAndSet(expectedValue = false, newValue = true)) {
             Timber.d("ActiveLiveLocationShareManager setup manager.")
 
@@ -97,6 +100,7 @@ class DefaultActiveLiveLocationShareManager(
     }
 
     override suspend fun startShare(roomId: RoomId, duration: Duration): Result<Unit> = withContext(NonCancellable) {
+        if (!locationService.isServiceAvailable()) return@withContext Result.failure(IllegalStateException("Maps are disabled in CIVCOM"))
         Timber.d("ActiveLiveLocationShareManager starting share for room $roomId with duration ${duration.inWholeSeconds}s")
         val room = cachedRooms.getOrPut(roomId) {
             matrixClient.getJoinedRoom(roomId) ?: return@withContext Result.failure(IllegalStateException("No room found for $roomId"))

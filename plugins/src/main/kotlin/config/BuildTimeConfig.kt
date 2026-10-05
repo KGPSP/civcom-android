@@ -9,16 +9,16 @@
 package config
 
 object BuildTimeConfig {
-    const val APPLICATION_ID = "io.element.android.x"
-    const val APPLICATION_NAME = "Element X"
-    val METADATA_HOST_REVERSED: String? = null
+    const val APPLICATION_ID = "pl.gov.psp.civcom"
+    const val APPLICATION_NAME = "CIVCOM"
+    val METADATA_HOST_REVERSED: String? = "pl.gov.psp.civcom"
     val OAUTH_CLIENT_URL_PATH: String? = "apps/android"
-    val URL_WEBSITE: String? = null
-    val URL_LOGO: String? = null
-    val URL_COPYRIGHT: String? = null
-    val URL_ACCEPTABLE_USE: String? = null
-    val URL_PRIVACY: String? = null
-    val URL_POLICY: String? = null
+    val URL_WEBSITE: String? = "https://civcom.soia.info"
+    val URL_LOGO: String? = "https://civcom.soia.info/znak.svg"
+    val URL_COPYRIGHT: String? = "https://github.com/KGPSP/civcom-android"
+    val URL_ACCEPTABLE_USE: String? = "https://civcom.soia.info/terms"
+    val URL_PRIVACY: String? = "https://civcom.soia.info/privacy"
+    val URL_POLICY: String? = "https://civcom.soia.info/privacy"
     val SERVICES_MAPTILER_BASE_URL: String? = null
     val SERVICES_MAPTILER_APIKEY: String? = null
     val SERVICES_MAPTILER_LIGHT_MAPID: String? = null
@@ -30,8 +30,8 @@ object BuildTimeConfig {
     val BUG_REPORT_URL: String? = null
     val BUG_REPORT_APP_NAME: String? = null
     const val PUSH_CONFIG_INCLUDE_FIREBASE: Boolean = true
-    const val PUSH_CONFIG_INCLUDE_UNIFIED_PUSH: Boolean = true
-    val PUSHER_APP_ID_RELEASE: String? = null
-    val PUSHER_APP_ID_DEBUG: String? = null
-    val PUSHER_APP_ID_NIGHTLY: String? = null
+    const val PUSH_CONFIG_INCLUDE_UNIFIED_PUSH: Boolean = false
+    val PUSHER_APP_ID_RELEASE: String? = "pl.gov.psp.civcom"
+    val PUSHER_APP_ID_DEBUG: String? = "pl.gov.psp.civcom.debug"
+    val PUSHER_APP_ID_NIGHTLY: String? = "pl.gov.psp.civcom.nightly"
 }

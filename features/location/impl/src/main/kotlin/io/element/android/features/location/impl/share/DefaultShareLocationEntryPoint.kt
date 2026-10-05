@@ -13,7 +13,9 @@ import com.bumble.appyx.core.node.Node
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
 import io.element.android.features.location.api.ShareLocationEntryPoint
+import io.element.android.features.location.impl.DisabledLocationNode
 import io.element.android.libraries.architecture.createNode
+import io.element.android.libraries.matrix.api.CivcomPolicy
 import io.element.android.libraries.matrix.api.timeline.Timeline
 
 @ContributesBinding(AppScope::class)
@@ -23,6 +25,7 @@ class DefaultShareLocationEntryPoint : ShareLocationEntryPoint {
         buildContext: BuildContext,
         timelineMode: Timeline.Mode,
     ): Node {
+        if (!CivcomPolicy.MAPS_ENABLED) return DisabledLocationNode(buildContext)
         return parentNode.createNode<ShareLocationNode>(
             buildContext = buildContext,
             plugins = listOf(ShareLocationNode.Inputs(timelineMode))

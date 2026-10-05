@@ -16,7 +16,7 @@ import org.matrix.rustcomponents.sdk.enableSentryLogging
 @ContributesBinding(AppScope::class)
 class RustAnalyticsSdkManager : AnalyticsSdkManager {
     override fun enableSdkAnalytics(enabled: Boolean) {
-        enableSentryLogging(enabled)
+        enableSentryLogging(false)
     }
 
     override fun startSpan(name: String, parentTraceId: String?): AnalyticsSdkSpan {

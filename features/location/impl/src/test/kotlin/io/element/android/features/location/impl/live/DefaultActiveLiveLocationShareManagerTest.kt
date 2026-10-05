@@ -12,7 +12,10 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
 import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
+import io.element.android.features.location.api.LocationService
+import io.element.android.features.location.impl.DefaultLocationService
 import io.element.android.features.location.impl.live.service.LiveLocationSharingCoordinator
+import io.element.android.features.location.test.FakeLocationService
 import io.element.android.libraries.matrix.api.room.location.BeaconInfoUpdate
 import io.element.android.libraries.matrix.test.AN_EVENT_ID
 import io.element.android.libraries.matrix.test.A_ROOM_ID
@@ -43,6 +46,18 @@ import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class DefaultActiveLiveLocationShareManagerTest {
+    @Test
+    fun `CIVCOM default policy starts no service and rejects sharing before room access`() = runTest {
+        var startedService = false
+        val manager = createManager(
+            coordinator = createCoordinator(startService = { startedService = true }),
+            locationService = DefaultLocationService(),
+        )
+        assertThat(manager.sharingRoomIds.value).isEmpty()
+        assertThat(manager.startShare(A_ROOM_ID, 15.minutes).isFailure).isTrue()
+        assertThat(startedService).isFalse()
+    }
+
     @get:Rule
     val warmUpRule = WarmUpRule()
 
@@ -476,6 +491,7 @@ class DefaultActiveLiveLocationShareManagerTest {
         liveLocationStore: LiveLocationStore = createLiveLocationStore(),
         clock: SystemClock = FakeSystemClock(),
         sessionObserver: SessionObserver = FakeSessionObserver(),
+        locationService: LocationService = FakeLocationService(isServiceAvailable = true),
     ): DefaultActiveLiveLocationShareManager {
         return DefaultActiveLiveLocationShareManager(
             matrixClient = client,
@@ -483,6 +499,7 @@ class DefaultActiveLiveLocationShareManagerTest {
             liveLocationStore = liveLocationStore,
             clock = clock,
             sessionObserver = sessionObserver,
+            locationService = locationService,
         ).apply {
             setup()
         }

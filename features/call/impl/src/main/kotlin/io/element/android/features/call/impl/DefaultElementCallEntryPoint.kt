@@ -17,13 +17,14 @@ import io.element.android.features.call.impl.notifications.CallNotificationData
 import io.element.android.features.call.impl.utils.ActiveCallManager
 import io.element.android.features.call.impl.utils.IntentProvider
 import io.element.android.libraries.di.annotations.ApplicationContext
+import io.element.android.libraries.matrix.api.CivcomPolicy
 import io.element.android.libraries.matrix.api.core.EventId
 import io.element.android.libraries.matrix.api.core.UserId
 
 @ContributesBinding(AppScope::class)
 class DefaultElementCallEntryPoint(
     @ApplicationContext private val context: Context,
-    private val activeCallManager: ActiveCallManager,
+    private val activeCallManager: Lazy<ActiveCallManager>,
 ) : ElementCallEntryPoint {
     companion object {
         const val EXTRA_CALL_TYPE = "EXTRA_CALL_TYPE"
@@ -31,7 +32,7 @@ class DefaultElementCallEntryPoint(
     }
 
     override fun startCall(callData: CallData) {
-        context.startActivity(IntentProvider.createIntent(context, callData))
+        if (CivcomPolicy.CALLS_ENABLED) context.startActivity(IntentProvider.createIntent(context, callData))
     }
 
     override suspend fun handleIncomingCall(
@@ -46,6 +47,7 @@ class DefaultElementCallEntryPoint(
         notificationChannelId: String,
         textContent: String?,
     ) {
+        if (!CivcomPolicy.CALLS_ENABLED) return
         val incomingCallNotificationData = CallNotificationData(
             sessionId = callData.sessionId,
             roomId = callData.roomId,
@@ -60,6 +62,6 @@ class DefaultElementCallEntryPoint(
             textContent = textContent,
             audioOnly = callData.isAudioCall,
         )
-        activeCallManager.registerIncomingCall(notificationData = incomingCallNotificationData)
+        activeCallManager.value.registerIncomingCall(notificationData = incomingCallNotificationData)
     }
 }

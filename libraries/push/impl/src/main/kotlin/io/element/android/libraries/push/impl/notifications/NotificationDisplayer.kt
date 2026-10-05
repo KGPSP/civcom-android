@@ -13,9 +13,11 @@ import android.app.Notification
 import android.content.Context
 import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
+import io.element.android.libraries.designsystem.utils.CommonDrawables
 import io.element.android.libraries.di.annotations.ApplicationContext
 import timber.log.Timber
 
@@ -37,10 +39,27 @@ class DefaultNotificationDisplayer(
             Timber.w("Not allowed to notify.")
             return false
         }
-        notificationManager.notify(tag, id, notification)
+        notificationManager.notify(tag, id, privateNotification(notification))
         Timber.d("Notifying with tag: $tag, id: $id")
         return true
     }
+
+    private fun privateNotification(notification: Notification): Notification =
+        NotificationCompat.Builder(context, NotificationCompat.getChannelId(notification) ?: "")
+            .setSmallIcon(CommonDrawables.ic_notification)
+            .setContentTitle("CIVCOM")
+            .setContentText("Nowa wiadomość")
+            .setTicker("CIVCOM — Nowa wiadomość")
+            .setContentIntent(notification.contentIntent)
+            .setDeleteIntent(notification.deleteIntent)
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
+            .setWhen(notification.`when`)
+            .setGroup(notification.group)
+            .setGroupSummary(notification.flags and Notification.FLAG_GROUP_SUMMARY != 0)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .build()
 
     override fun cancelNotification(tag: String?, id: Int) {
         notificationManager.cancel(tag, id)

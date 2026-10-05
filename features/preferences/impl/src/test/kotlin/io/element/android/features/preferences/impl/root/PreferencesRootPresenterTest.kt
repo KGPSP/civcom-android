@@ -18,7 +18,6 @@ import io.element.android.features.logout.api.direct.aDirectLogoutState
 import io.element.android.features.preferences.impl.userstatus.aUserStatusState
 import io.element.android.features.preferences.impl.utils.ShowDeveloperSettingsProvider
 import io.element.android.features.rageshake.api.RageshakeFeatureAvailability
-import io.element.android.libraries.core.meta.BuildType
 import io.element.android.libraries.designsystem.utils.snackbar.SnackbarDispatcher
 import io.element.android.libraries.featureflag.api.FeatureFlagService
 import io.element.android.libraries.featureflag.api.FeatureFlags
@@ -35,7 +34,6 @@ import io.element.android.libraries.matrix.test.A_USER_ID
 import io.element.android.libraries.matrix.test.A_USER_ID_2
 import io.element.android.libraries.matrix.test.A_USER_NAME
 import io.element.android.libraries.matrix.test.FakeMatrixClient
-import io.element.android.libraries.matrix.test.core.aBuildMeta
 import io.element.android.libraries.matrix.test.verification.FakeSessionVerificationService
 import io.element.android.libraries.sessionstorage.api.SessionStore
 import io.element.android.libraries.sessionstorage.test.InMemorySessionStore
@@ -97,7 +95,7 @@ class PreferencesRootPresenterTest {
             assertThat(loadedState.accountManagementUrl).isNull()
             assertThat(loadedState.showAnalyticsSettings).isFalse()
             assertThat(loadedState.showLinkNewDevice).isFalse()
-            assertThat(loadedState.showDeveloperSettings).isTrue()
+            assertThat(loadedState.showDeveloperSettings).isFalse()
             assertThat(loadedState.canDeactivateAccount).isTrue()
             assertThat(loadedState.canReportBug).isTrue()
             assertThat(loadedState.nbOfBlockedUsers).isEqualTo(0)
@@ -183,7 +181,7 @@ class PreferencesRootPresenterTest {
                 canDeactivateAccountResult = { true },
                 accountManagementUrlResult = { Result.success(null) },
             ),
-            showDeveloperSettingsProvider = ShowDeveloperSettingsProvider(aBuildMeta(BuildType.RELEASE))
+            showDeveloperSettingsProvider = ShowDeveloperSettingsProvider()
         ).test {
             val loadedState = awaitFirstItem()
             assertThat(loadedState.showDeveloperSettings).isFalse()
@@ -191,20 +189,21 @@ class PreferencesRootPresenterTest {
     }
 
     @Test
-    fun `present - developer settings can be enabled in release builds`() = runTest {
+    fun `present - developer settings remain disabled after repeated taps`() = runTest {
         createPresenter(
             matrixClient = FakeMatrixClient(
                 canDeactivateAccountResult = { true },
                 accountManagementUrlResult = { Result.success(null) },
             ),
-            showDeveloperSettingsProvider = ShowDeveloperSettingsProvider(aBuildMeta(BuildType.RELEASE))
+            showDeveloperSettingsProvider = ShowDeveloperSettingsProvider()
         ).test {
             val loadedState = awaitFirstItem()
             repeat(times = ShowDeveloperSettingsProvider.DEVELOPER_SETTINGS_COUNTER) {
                 assertThat(loadedState.showDeveloperSettings).isFalse()
                 loadedState.eventSink(PreferencesRootEvent.OnVersionInfoClick)
             }
-            assertThat(awaitItem().showDeveloperSettings).isTrue()
+            assertThat(loadedState.showDeveloperSettings).isFalse()
+            expectNoEvents()
         }
     }
 
@@ -328,7 +327,7 @@ class PreferencesRootPresenterTest {
     private fun createPresenter(
         matrixClient: FakeMatrixClient = FakeMatrixClient(),
         sessionVerificationService: FakeSessionVerificationService = FakeSessionVerificationService(),
-        showDeveloperSettingsProvider: ShowDeveloperSettingsProvider = ShowDeveloperSettingsProvider(aBuildMeta(BuildType.DEBUG)),
+        showDeveloperSettingsProvider: ShowDeveloperSettingsProvider = ShowDeveloperSettingsProvider(),
         rageshakeFeatureAvailability: RageshakeFeatureAvailability = RageshakeFeatureAvailability { flowOf(true) },
         indicatorService: IndicatorService = FakeIndicatorService(),
         featureFlagService: FeatureFlagService = FakeFeatureFlagService(),

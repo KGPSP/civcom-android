@@ -1,0 +1,4 @@
+<resources>
+    <string name="screen_location_civcom_disabled_title">Mapy niedostępne</string>
+    <string name="screen_location_civcom_disabled_message">Mapy są niedostępne w tej wersji CIVCOM.</string>
+</resources>

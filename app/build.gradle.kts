@@ -11,7 +11,6 @@
 import com.android.build.api.variant.FilterConfiguration.FilterType.ABI
 import com.android.build.gradle.internal.tasks.factory.dependsOn
 import com.android.build.gradle.tasks.GenerateBuildConfig
-import com.google.firebase.appdistribution.gradle.firebaseAppDistribution
 import config.BuildTimeConfig
 import extension.AssetCopyTask
 import extension.GitBranchNameValueSource
@@ -25,12 +24,12 @@ import extension.locales
 import extension.setupDependencyInjection
 import extension.testCommonDependencies
 import org.sonarqube.gradle.SonarResolverTask
+import java.security.KeyStore
+import java.security.MessageDigest
 import java.util.Locale
 
 plugins {
     id("io.element.android-compose-application")
-    // When using precompiled plugins, we need to apply the firebase plugin like this
-    id(libs.plugins.firebaseAppDistribution.get().pluginId)
     id("kotlin-parcelize")
     alias(libs.plugins.licensee)
     alias(libs.plugins.kotlin.serialization)
@@ -87,14 +86,11 @@ android {
             storeFile = file("./signature/debug.keystore")
             storePassword = "android"
         }
-        register("nightly") {
-            keyAlias = System.getenv("ELEMENT_ANDROID_NIGHTLY_KEYID")
-                ?: project.property("signing.element.nightly.keyId") as? String?
-            keyPassword = System.getenv("ELEMENT_ANDROID_NIGHTLY_KEYPASSWORD")
-                ?: project.property("signing.element.nightly.keyPassword") as? String?
-            storeFile = file("./signature/nightly.keystore")
-            storePassword = System.getenv("ELEMENT_ANDROID_NIGHTLY_STOREPASSWORD")
-                ?: project.property("signing.element.nightly.storePassword") as? String?
+        register("civcomRelease") {
+            keyAlias = System.getenv("CIVCOM_RELEASE_KEY_ALIAS")
+            keyPassword = System.getenv("CIVCOM_RELEASE_KEY_PASSWORD")
+            storePassword = System.getenv("CIVCOM_RELEASE_STORE_PASSWORD")
+            storeFile = System.getenv("CIVCOM_RELEASE_STORE_FILE")?.let(::file)
         }
     }
 
@@ -103,7 +99,7 @@ android {
     logger.warnInBox("Building ${defaultConfig.applicationId} ($baseAppName) [$buildType]")
 
     buildTypes {
-        val oAuthRedirectSchemeBase = BuildTimeConfig.METADATA_HOST_REVERSED ?: "io.element.android"
+        val oAuthRedirectSchemeBase = requireNotNull(BuildTimeConfig.METADATA_HOST_REVERSED)
         getByName("debug") {
             resValue("string", "app_name", "$baseAppName dbg")
             resValue(
@@ -122,7 +118,7 @@ android {
                 "login_redirect_scheme",
                 oAuthRedirectSchemeBase,
             )
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("civcomRelease")
 
             optimization {
                 enable = true
@@ -147,30 +143,7 @@ android {
                 "$oAuthRedirectSchemeBase.nightly",
             )
             matchingFallbacks += listOf("release")
-            signingConfig = signingConfigs.getByName("nightly")
-
-            firebaseAppDistribution {
-                artifactType = "APK"
-                // We upload the universal APK to fix this error:
-                // "App Distribution found more than 1 output file for this variant.
-                // Please contact firebase-support@google.com for help using APK splits with App Distribution."
-                artifactPath = "$rootDir/app/build/outputs/apk/gplay/nightly/app-gplay-universal-nightly.apk"
-                // artifactType = "AAB"
-                // artifactPath = "$rootDir/app/build/outputs/bundle/nightly/app-nightly.aab"
-                releaseNotesFile = "tools/release/ReleaseNotesNightly.md"
-                groups = if (isEnterpriseBuild) {
-                    "enterprise-testers"
-                } else {
-                    "external-testers"
-                }
-                // This should not be required, but if I do not add the appId, I get this error:
-                // "App Distribution halted because it had a problem uploading the APK: [404] Requested entity was not found."
-                appId = if (isEnterpriseBuild) {
-                    "1:912726360885:android:3f7e1fe644d99d5a00427c"
-                } else {
-                    "1:912726360885:android:e17435e0beb0303000427c"
-                }
-            }
+            signingConfig = signingConfigs.getByName("civcomRelease")
         }
     }
 
@@ -290,7 +263,6 @@ dependencies {
 
     // Google Play Services fused location backend. Discovered at runtime via ServiceLoader by the
     // location feature.
-    "gplayImplementation"(libs.maplibre.compose.location.runtime.gms)
 
     implementation(libs.appyx.core)
     implementation(libs.androidx.splash)
@@ -376,3 +348,34 @@ configurations.all {
         }
     }
 }
+
+// Signed variants cannot be packaged with inherited/debug keys or unprovisioned push/domain identity.
+val verifyCivcomRelease by tasks.registering {
+    doLast {
+        fun required(name: String) = requireNotNull(System.getenv(name)?.takeIf(String::isNotBlank)) { "Missing CIVCOM prerequisite: $name" }
+        val password = required("CIVCOM_RELEASE_STORE_PASSWORD").toCharArray()
+        val keyStore = KeyStore.getInstance(file(required("CIVCOM_RELEASE_STORE_FILE")), password)
+        val keyAlias = required("CIVCOM_RELEASE_KEY_ALIAS")
+        require(!keyAlias.equals("androiddebugkey", ignoreCase = true)) { "Debug signing is forbidden for CIVCOM release" }
+        val certificate = requireNotNull(keyStore.getCertificate(keyAlias)) { "CIVCOM signing certificate missing" }
+        required("CIVCOM_RELEASE_KEY_PASSWORD")
+        val fingerprint = MessageDigest.getInstance("SHA-256").digest(certificate.encoded)
+            .joinToString(":") { "%02X".format(it) }
+        val associations = groovy.json.JsonSlurper().parse(file(required("CIVCOM_ASSETLINKS_JSON"))) as List<*>
+        val packageName = if (gradle.startParameter.taskNames.any { it.contains("Nightly", ignoreCase = true) }) {
+            "pl.gov.psp.civcom.nightly"
+        } else {
+            "pl.gov.psp.civcom"
+        }
+        require(associations.any { entry ->
+            val item = entry as Map<*, *>
+            val target = item["target"] as? Map<*, *>
+            val certificates = target?.get("sha256_cert_fingerprints") as? List<*>
+            target?.get("package_name") == packageName && certificates?.contains(fingerprint) == true &&
+                (item["relation"] as? List<*>)?.contains("delegate_permission/common.handle_all_urls") == true
+        }) { "CIVCOM app links do not match package and actual signing certificate" }
+        required(if (packageName.endsWith(".nightly")) "CIVCOM_FIREBASE_DEV_JSON" else "CIVCOM_FIREBASE_PROD_JSON")
+    }
+}
+tasks.matching { it.name.startsWith("pre") && (it.name.contains("Release") || it.name.contains("Nightly")) && it.name.endsWith("Build") }
+    .configureEach { dependsOn(verifyCivcomRelease) }

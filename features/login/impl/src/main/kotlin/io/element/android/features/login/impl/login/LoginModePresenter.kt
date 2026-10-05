@@ -75,6 +75,7 @@ class LoginModePresenter(
 
     private suspend fun performSubmit(request: LoginModeEvent.Submit, loginMode: MutableState<AsyncData<LoginMode>>) {
         suspend {
+            if (request.isAccountCreation) throw AccountCreationNotSupported()
             // Reuse the details the caller already resolved when it configured the homeserver, so we don't
             // run setHomeserver (a network round-trip) again. Otherwise configure the homeserver ourselves.
             val matrixHomeServerDetails = request.preConfiguredDetails
@@ -94,7 +95,7 @@ class LoginModePresenter(
                     )
                 }
                 request.isAccountCreation -> throw AccountCreationNotSupported()
-                matrixHomeServerDetails.supportsPasswordLogin -> LoginMode.PasswordLogin
+                matrixHomeServerDetails.supportsPasswordLogin -> error("CIVCOM requires OIDC authentication")
                 else -> error("Unsupported authentication flow")
             }
         }.runCatchingUpdatingState(

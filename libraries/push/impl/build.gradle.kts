@@ -24,24 +24,23 @@ android {
     }
 
     buildTypes {
-        val defaultPusherAppId = "im.vector.app.android"
         getByName("release") {
             buildConfigFieldStr(
                 name = "PUSHER_APP_ID",
-                value = BuildTimeConfig.PUSHER_APP_ID_RELEASE ?: defaultPusherAppId,
+                value = requireNotNull(BuildTimeConfig.PUSHER_APP_ID_RELEASE),
             )
         }
         getByName("debug") {
             buildConfigFieldStr(
                 name = "PUSHER_APP_ID",
-                value = BuildTimeConfig.PUSHER_APP_ID_DEBUG ?: defaultPusherAppId,
+                value = requireNotNull(BuildTimeConfig.PUSHER_APP_ID_DEBUG),
             )
         }
         register("nightly") {
             matchingFallbacks += listOf("release")
             buildConfigFieldStr(
                 name = "PUSHER_APP_ID",
-                value = BuildTimeConfig.PUSHER_APP_ID_NIGHTLY ?: defaultPusherAppId,
+                value = requireNotNull(BuildTimeConfig.PUSHER_APP_ID_NIGHTLY),
             )
         }
     }

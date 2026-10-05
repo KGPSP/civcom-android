@@ -11,6 +11,7 @@ package io.element.android.features.location.impl.share
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import com.bumble.appyx.core.modality.BuildContext
 import com.google.common.truth.Truth.assertThat
+import io.element.android.features.location.impl.DisabledLocationNode
 import io.element.android.features.location.impl.common.FakeUserLocationStateFactory
 import io.element.android.features.location.impl.common.actions.FakeLocationActions
 import io.element.android.features.location.impl.common.permissions.FakePermissionsPresenter
@@ -36,7 +37,9 @@ class DefaultShareLocationEntryPointTest {
     @Test
     fun `test node builder`() = runTest {
         val entryPoint = DefaultShareLocationEntryPoint()
+        var initializedMap = false
         val parentNode = TestParentNode.create { buildContext, plugins ->
+            initializedMap = true
             val room = FakeJoinedRoom()
             ShareLocationNode(
                 buildContext = buildContext,
@@ -70,7 +73,8 @@ class DefaultShareLocationEntryPointTest {
             buildContext = BuildContext.root(null),
             timelineMode = timelineMode,
         )
-        assertThat(result).isInstanceOf(ShareLocationNode::class.java)
-        assertThat(result.plugins).contains(ShareLocationNode.Inputs(timelineMode))
+        assertThat(result).isInstanceOf(DisabledLocationNode::class.java)
+        assertThat(initializedMap).isFalse()
+        assertThat(result.plugins).isEmpty()
     }
 }

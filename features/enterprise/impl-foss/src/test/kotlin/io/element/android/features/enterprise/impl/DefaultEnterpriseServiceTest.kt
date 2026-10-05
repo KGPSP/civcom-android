@@ -8,33 +8,55 @@
 
 package io.element.android.features.enterprise.impl
 
+import androidx.compose.ui.graphics.Color
 import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
-import io.element.android.compound.colors.SemanticColorsLightDark
 import io.element.android.features.enterprise.api.BugReportUrl
-import io.element.android.libraries.androidutils.json.JsonProvider
-import io.element.android.libraries.core.uri.ensureProtocol
+import io.element.android.libraries.core.extensions.runCatchingExceptions
 import io.element.android.libraries.matrix.test.A_HOMESERVER_URL
 import io.element.android.libraries.matrix.test.A_SESSION_ID
 import io.element.android.libraries.matrix.test.FakeTemporaryMatrixClient
-import io.element.android.libraries.matrix.test.FakeTemporaryMatrixClientFactory
-import io.element.android.tests.testutils.lambda.lambdaRecorder
-import io.element.android.tests.testutils.lambda.value
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.Json
 import org.junit.Test
 
 class DefaultEnterpriseServiceTest {
     @Test
-    fun homeserverWhitelist() {
-        val defaultEnterpriseService = createDefaultEnterpriseService()
-        assertThat(defaultEnterpriseService.homeserverAllowList()).isEmpty()
+    fun `only official server and API accepted without credential or path tricks`() = runTest {
+        val service = createDefaultEnterpriseService()
+        listOf("soia.info", "https://soia.info", "https://soia.info/", "https://matrix.soia.info").forEach {
+            assertThat(service.isAllowedToConnectToHomeserver(it)).isTrue()
+        }
+        listOf(
+            "http://soia.info",
+            "https://soia.info.evil",
+            "https://soia.info@evil",
+            "https://matrix.org",
+            "https://soia.info/login",
+            "https://soia.info:444",
+            "https://auth.soia.info"
+        ).forEach {
+            assertThat(service.isAllowedToConnectToHomeserver(it)).isFalse()
+        }
     }
 
     @Test
-    fun `isAllowedToConnectToHomeserver is true for all homeserver urls`() = runTest {
+    fun `foreign OIDC authorization endpoints are rejected before user credentials`() = runTest {
+        val service = createDefaultEnterpriseService()
+        val client = FakeTemporaryMatrixClient()
+        assertThat(service.tweakMasUrl("https://auth.soia.info/", client)).isEqualTo("https://auth.soia.info/")
+        assertThat(runCatchingExceptions { service.tweakMasUrl("https://foreign.invalid/", client) }.isFailure).isTrue()
+    }
+
+    @Test
+    fun homeserverWhitelist() {
         val defaultEnterpriseService = createDefaultEnterpriseService()
-        assertThat(defaultEnterpriseService.isAllowedToConnectToHomeserver(A_HOMESERVER_URL)).isTrue()
+        assertThat(defaultEnterpriseService.homeserverAllowList()).containsExactly("soia.info")
+    }
+
+    @Test
+    fun `foreign account providers are rejected`() = runTest {
+        val defaultEnterpriseService = createDefaultEnterpriseService()
+        assertThat(defaultEnterpriseService.isAllowedToConnectToHomeserver(A_HOMESERVER_URL)).isFalse()
     }
 
     @Test
@@ -48,7 +70,8 @@ class DefaultEnterpriseServiceTest {
         val defaultEnterpriseService = createDefaultEnterpriseService()
         defaultEnterpriseService.semanticColorsFlow(null).test {
             val initialState = awaitItem()
-            assertThat(initialState).isEqualTo(SemanticColorsLightDark.default)
+            assertThat(initialState.light.bgAccentRest).isEqualTo(Color(0xFFC01F2A))
+            assertThat(initialState.dark.bgAccentRest).isEqualTo(Color(0xFFD22730))
             awaitComplete()
         }
     }
@@ -68,7 +91,8 @@ class DefaultEnterpriseServiceTest {
         val defaultEnterpriseService = createDefaultEnterpriseService()
         defaultEnterpriseService.semanticColorsFlow(A_SESSION_ID).test {
             val initialState = awaitItem()
-            assertThat(initialState).isEqualTo(SemanticColorsLightDark.default)
+            assertThat(initialState.light.bgAccentRest).isEqualTo(Color(0xFFC01F2A))
+            assertThat(initialState.dark.bgAccentRest).isEqualTo(Color(0xFFD22730))
             awaitComplete()
         }
     }
@@ -92,10 +116,10 @@ class DefaultEnterpriseServiceTest {
     }
 
     @Test
-    fun `bugReportUrlFlow only emits UseDefault`() = runTest {
+    fun `bugReportUrlFlow only emits Disabled`() = runTest {
         val defaultEnterpriseService = createDefaultEnterpriseService()
         defaultEnterpriseService.bugReportUrlFlow(A_SESSION_ID).test {
-            assertThat(awaitItem()).isEqualTo(BugReportUrl.UseDefault)
+            assertThat(awaitItem()).isEqualTo(BugReportUrl.Disabled)
             awaitComplete()
         }
     }
@@ -107,29 +131,9 @@ class DefaultEnterpriseServiceTest {
     }
 
     @Test
-    fun `isElementProEnforced checks using a temporary client`() = runTest {
-        val closeLambda = lambdaRecorder<Unit> {}
-        val getUrlLambda = lambdaRecorder<String, Result<ByteArray>> {
-            Result.success("""{"enforce_element_pro": true}""".toByteArray())
-        }
-        val client = FakeTemporaryMatrixClient(
-            getUrlResult = getUrlLambda,
-            closeLambda = closeLambda,
-        )
-        val defaultEnterpriseService = createDefaultEnterpriseService(client = client)
-        assertThat(defaultEnterpriseService.isElementProEnforced(A_HOMESERVER_URL)).isTrue()
-
-        // Verify that the temporary client was used to fetch the URL and then closed
-        val expectedUrl = "${A_HOMESERVER_URL.ensureProtocol()}/.well-known/element/element.json"
-        getUrlLambda.assertions().isCalledOnce().with(value(expectedUrl))
-        closeLambda.assertions().isCalledOnce()
+    fun `CIVCOM has no Element Pro requirement`() = runTest {
+        assertThat(createDefaultEnterpriseService().isElementProEnforced("soia.info")).isFalse()
     }
 
-    private fun createDefaultEnterpriseService(
-        client: FakeTemporaryMatrixClient = FakeTemporaryMatrixClient(),
-        jsonProvider: JsonProvider = { Json }
-    ) = DefaultEnterpriseService(
-        temporaryMatrixClientFactory = FakeTemporaryMatrixClientFactory(createResult = { Result.success(client) }),
-        jsonProvider = jsonProvider,
-    )
+    private fun createDefaultEnterpriseService() = DefaultEnterpriseService()
 }

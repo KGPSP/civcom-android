@@ -11,6 +11,7 @@ package io.element.android.libraries.push.impl.notifications
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
 import io.element.android.libraries.core.extensions.runCatchingExceptions
+import io.element.android.libraries.matrix.api.CivcomPolicy
 import io.element.android.libraries.matrix.api.MatrixClientProvider
 import io.element.android.libraries.matrix.api.core.SessionId
 import io.element.android.libraries.matrix.api.exception.NotificationResolverException
@@ -58,6 +59,7 @@ class DefaultCallNotificationEventResolver(
         notificationData: NotificationData,
         forceNotify: Boolean
     ): Result<NotifiableEvent> = runCatchingExceptions {
+        check(CivcomPolicy.CALLS_ENABLED) { "Calls are disabled in CIVCOM" }
         val content = notificationData.content as? NotificationContent.MessageLike.RtcNotification
             ?: throw NotificationResolverException.UnknownError("content is not a call notify")
 
